@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  core:
+    name: core ($ matrix.cc , no HIP)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - cc: gcc
+            cxx: g++
+          - cc: clang
+            cxx: clang++
+    env:
+      CC: $ matrix.cc 
+      CXX: $ matrix.cxx 
+    steps:
+      - uses: actions/checkout@v4
+
+      # GitHub-hosted runners have no ROCm/GPU, so we build the HIP-free
+      # planning core and run its unit tests. The HIP layer, the C-ABI shared
+      # library and the executor smoke test require a real AMD GPU and are
+      # exercised on self-hosted hardware instead.
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DHIPSPLIT_WITH_HIP=OFF
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
